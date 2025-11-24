@@ -12,10 +12,6 @@
 - 💾 設定の自動保存
 - 🪶 常駐不要の軽量設計
 
-## ダウンロード
-
-[最新版をダウンロード](https://github.com/あなたのユーザー名/excel-switcher/releases/latest)
-
 ## 使い方
 
 1. `ExcelSwitcher.exe` を起動
