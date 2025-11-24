@@ -53,7 +53,7 @@ public class ExcelSwitcherForm : Form
 		this.Size = new Size(500, 600);
 		this.StartPosition = FormStartPosition.CenterScreen;
 		this.KeyPreview = true;
-		this.TopMost = true; // 常に最前面に表示
+		this.TopMost = true;
 
 		// TreeView設定
 		treeView = new TreeView
@@ -104,7 +104,6 @@ public class ExcelSwitcherForm : Form
 			settings = new GroupSettings();
 		}
 
-		// 未分類グループが存在しない場合は追加
 		if (!settings.Groups.Any(g => g.Name == "未分類"))
 		{
 			settings.Groups.Insert(0, new GroupData { Name = "未分類" });
@@ -115,7 +114,6 @@ public class ExcelSwitcherForm : Form
 	{
 		try
 		{
-			// 現在のTreeViewの状態から設定を再構築
 			settings.Groups.Clear();
 			foreach (TreeNode groupNode in treeView.Nodes)
 			{
@@ -157,14 +155,12 @@ public class ExcelSwitcherForm : Form
 			}
 		}
 
-		// 設定からグループを復元
 		foreach (var group in settings.Groups)
 		{
 			var groupNode = new TreeNode(group.Name) { Tag = null };
 			groupNode.NodeFont = new Font(treeView.Font, FontStyle.Bold);
 			groupNode.ForeColor = Color.DarkBlue;
 
-			// このグループに属するExcelファイルを追加
 			foreach (var fileName in group.Files)
 			{
 				var matchedExcel = excelData.FirstOrDefault(e => e.title.Contains(fileName));
@@ -180,7 +176,6 @@ public class ExcelSwitcherForm : Form
 			groupNode.Expand();
 		}
 
-		// 未分類グループに残りのExcelを追加
 		if (excelData.Count > 0)
 		{
 			var uncategorizedNode = treeView.Nodes.Cast<TreeNode>().FirstOrDefault(n => n.Text == "未分類");
@@ -224,7 +219,6 @@ public class ExcelSwitcherForm : Form
 			}
 		}
 
-		// 変更があった場合のみ更新
 		if (!currentExcelWindows.SetEquals(lastExcelWindows))
 		{
 			LoadExcelWindows();
@@ -233,37 +227,28 @@ public class ExcelSwitcherForm : Form
 
 	private void ActivateExcel(TreeNode node)
 	{
-		// グループノードの場合は何もしない
 		if (node.Tag == null) return;
 
 		wnd w = (wnd)(IntPtr)node.Tag;
 
-		// ウィンドウが存在するか確認
 		if (!w.IsAlive)
 		{
 			dialog.show("選択したExcelウィンドウは既に閉じられています。", "エラー");
 			return;
 		}
 
-		// 最小化されている場合は復元
 		if (w.IsMinimized)
 		{
 			w.ShowNotMinMax();
 		}
 
-		// ウィンドウをアクティブ化
 		w.Activate();
-
-		// ✅ 改善: フォームを閉じない（連続して複数のExcelを開けるように）
-		// this.Close(); ← この行を削除
 	}
 
-	// ドラッグ&ドロップ処理
 	private void TreeView_ItemDrag(object sender, ItemDragEventArgs e)
 	{
 		if (e.Item is TreeNode node)
 		{
-			// ✅ 改善: グループもファイルもドラッグ可能に
 			DoDragDrop(node, DragDropEffects.Move);
 		}
 	}
@@ -287,23 +272,17 @@ public class ExcelSwitcherForm : Form
 		Point targetPoint = treeView.PointToClient(new Point(e.X, e.Y));
 		TreeNode targetNode = treeView.GetNodeAt(targetPoint);
 
-		// ✅ 改善: グループの並び替えに対応
-		if (draggedNode.Tag == null) // ドラッグしているのがグループの場合
+		if (draggedNode.Tag == null)
 		{
-			// グループの並び替え
-			if (targetNode == null || targetNode.Tag == null) // 空白エリアまたは別のグループ
-			{
-				int newIndex = targetNode == null ? treeView.Nodes.Count : targetNode.Index;
-				draggedNode.Remove();
-				treeView.Nodes.Insert(newIndex, draggedNode);
-				SaveSettings();
-			}
+			int newIndex = targetNode == null ? treeView.Nodes.Count : targetNode.Index;
+			draggedNode.Remove();
+			treeView.Nodes.Insert(newIndex, draggedNode);
+			SaveSettings();
 		}
-		else // ドラッグしているのがファイルの場合
+		else
 		{
 			if (targetNode != null)
 			{
-				// グループノードの場合はそこに追加
 				TreeNode targetGroup = targetNode.Tag == null ? targetNode : targetNode.Parent;
 
 				if (targetGroup != null)
@@ -324,9 +303,10 @@ public class ExcelSwitcherForm : Form
 			TreeNode clickedNode = treeView.GetNodeAt(e.Location);
 			var menu = new ContextMenuStrip();
 
-			if (clickedNode != null && clickedNode.Tag == null) // グループノードの場合
+			// ✅ 修正: グループノードをクリックした場合
+			if (clickedNode != null && clickedNode.Tag == null)
 			{
-				// ✅ 改善: グループ削除機能を追加
+				// グループ削除
 				menu.Items.Add("グループを削除", null, (s, ev) =>
 				{
 					if (clickedNode.Text == "未分類")
@@ -338,9 +318,8 @@ public class ExcelSwitcherForm : Form
 					var result = dialog.show("グループを削除しますか？\n（グループ内のファイルは「未分類」に移動されます）",
 						"確認", "はい|いいえ", icon: DIcon.Warning);
 					
-					if (result == 1) // 「はい」を選択
+					if (result == 1)
 					{
-						// グループ内のファイルを「未分類」に移動
 						var uncategorizedNode = treeView.Nodes.Cast<TreeNode>().FirstOrDefault(n => n.Text == "未分類");
 						if (uncategorizedNode == null)
 						{
@@ -350,7 +329,6 @@ public class ExcelSwitcherForm : Form
 							treeView.Nodes.Insert(0, uncategorizedNode);
 						}
 
-						// ファイルを移動
 						while (clickedNode.Nodes.Count > 0)
 						{
 							var fileNode = clickedNode.Nodes[0];
@@ -358,13 +336,13 @@ public class ExcelSwitcherForm : Form
 							uncategorizedNode.Nodes.Add(fileNode);
 						}
 
-						// グループを削除
 						clickedNode.Remove();
 						uncategorizedNode.Expand();
 						SaveSettings();
 					}
 				});
 
+				// グループ名変更
 				menu.Items.Add("グループ名を変更", null, (s, ev) =>
 				{
 					if (clickedNode.Text == "未分類")
@@ -382,26 +360,25 @@ public class ExcelSwitcherForm : Form
 						}
 					}
 				});
-			}
-			else // 空白エリアをクリックした場合
-			{
-				menu.Items.Add("新しいグループを作成", null, (s, ev) =>
-				{
-					if (!dialog.showInput(out string groupName, "グループ名を入力してください", "新しいグループ")) return;
-					if (string.IsNullOrWhiteSpace(groupName)) return;
 
-					var newGroup = new TreeNode(groupName) { Tag = null };
-					newGroup.NodeFont = new Font(treeView.Font, FontStyle.Bold);
-					newGroup.ForeColor = Color.DarkBlue;
-					treeView.Nodes.Add(newGroup);
-					SaveSettings();
-				});
+				// セパレーター
+				menu.Items.Add(new ToolStripSeparator());
 			}
 
-			if (menu.Items.Count > 0)
+			// ✅ 修正: 常に「新しいグループを作成」を表示
+			menu.Items.Add("新しいグループを作成", null, (s, ev) =>
 			{
-				menu.Show(treeView, e.Location);
-			}
+				if (!dialog.showInput(out string groupName, "グループ名を入力してください", "新しいグループ")) return;
+				if (string.IsNullOrWhiteSpace(groupName)) return;
+
+				var newGroup = new TreeNode(groupName) { Tag = null };
+				newGroup.NodeFont = new Font(treeView.Font, FontStyle.Bold);
+				newGroup.ForeColor = Color.DarkBlue;
+				treeView.Nodes.Add(newGroup);
+				SaveSettings();
+			});
+
+			menu.Show(treeView, e.Location);
 		}
 	}
 
